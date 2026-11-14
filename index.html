@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MovieBox</title>
+<meta name="robots" content="noindex">
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b0b0f; color: #eee; font: 16px/1.5 -apple-system, system-ui, Segoe UI, Roboto, sans-serif; text-align: center; padding: 0 16px; }
+  h1 { font-size: 34px; margin: 0 0 6px; color: #e50914; letter-spacing: .5px; }
+  p { color: #aaa; margin: 6px 0; }
+  .spin { width: 34px; height: 34px; margin: 22px auto; border: 3px solid #333; border-top-color: #e50914; border-radius: 50%; animation: s 1s linear infinite; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  button { margin-top: 18px; background: #e50914; color: #fff; border: 0; border-radius: 6px; padding: 10px 22px; font-size: 16px; cursor: pointer; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🎬 MovieBox</h1>
+  <div id="wait"><div class="spin"></div><p>Opening MovieBox…</p></div>
+  <div id="off" hidden>
+    <p><b>MovieBox is offline right now.</b></p>
+    <p>The host computer is asleep or not sharing. This page checks again automatically.</p>
+    <button onclick="go()">Try again</button>
+  </div>
+</main>
+<script>
+// link.json is rewritten by MovieBox whenever its public link changes.
+// Read it from the GitHub API first (no Pages cache delay), falling back to the Pages copy.
+const REPO = location.hostname.split('.')[0] + '/' + location.pathname.split('/')[1];
+const timeout = ms => AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined;
+async function current() {
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/contents/link.json`, { headers: { Accept: 'application/vnd.github.raw+json' }, cache: 'no-store', signal: timeout(8000) });
+    if (r.ok) return await r.json();
+  } catch (e) {}
+  const r = await fetch('link.json?t=' + Date.now(), { cache: 'no-store' });
+  return r.ok ? r.json() : {};
+}
+async function go() {
+  document.getElementById('wait').hidden = false;
+  document.getElementById('off').hidden = true;
+  try {
+    const link = await current();
+    if (link.on && link.url) {
+      const ok = await fetch(link.url + '/api/alive', { cache: 'no-store', signal: timeout(10000) }).then(r => r.ok).catch(() => false);
+      if (ok) return location.replace(link.url + location.hash);
+    }
+  } catch (e) {}
+  document.getElementById('wait').hidden = true;
+  document.getElementById('off').hidden = false;
+  clearTimeout(window.retry);
+  window.retry = setTimeout(go, 20000);
+}
+go();
+</script>
+</body>
+</html>
