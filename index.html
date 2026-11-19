@@ -23,7 +23,6 @@
   <div id="off" hidden>
     <p><b>MovieBox is offline right now.</b></p>
     <p>The host computer is asleep or not sharing. This page checks again automatically.</p>
-    <p>please check with Gautam , Please call on +91 9650979813</p>
     <button onclick="go()">Try again</button>
   </div>
 </main>
@@ -40,6 +39,15 @@ async function current() {
   const r = await fetch('link.json?t=' + Date.now(), { cache: 'no-store' });
   return r.ok ? r.json() : {};
 }
+// A visitor's profile lives with this page (its address never changes) and is handed to MovieBox in the
+// link, because MovieBox's own address changes now and then and browsers keep data per address.
+const hash = new URLSearchParams(location.hash.slice(1));
+if (/^(v[0-9a-f]{16}|guest)$/.test(hash.get('save') || '')) { try { localStorage.setItem('mb.visitor', hash.get('save')); } catch (e) {} }
+hash.delete('save');
+hash.delete('mbv');
+try { const v = localStorage.getItem('mb.visitor'); if (v) hash.set('mbv', v); } catch (e) {}
+const forward = hash.toString() ? '#' + hash.toString() : '';
+history.replaceState(null, '', location.pathname);
 async function go() {
   document.getElementById('wait').hidden = false;
   document.getElementById('off').hidden = true;
@@ -47,7 +55,7 @@ async function go() {
     const link = await current();
     if (link.on && link.url) {
       const ok = await fetch(link.url + '/api/alive', { cache: 'no-store', signal: timeout(10000) }).then(r => r.ok).catch(() => false);
-      if (ok) return location.replace(link.url + location.hash);
+      if (ok) return location.replace(link.url + forward);
     }
   } catch (e) {}
   document.getElementById('wait').hidden = true;
